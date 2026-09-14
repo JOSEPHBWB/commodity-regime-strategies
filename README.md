@@ -1,155 +1,133 @@
-# Commodity Regime Strategies
+# Commodity Strategies Across Market Regimes
 
-A small research project on a question I kept coming back to while learning quantitative trading:
+A small empirical study of simple trading signals and an LSTM baseline across energy and precious-metal futures.
 
-> Do simple commodity trading signals still work after market regimes and trading costs are taken seriously?
+I started this project to look at a practical question: do more flexible forecasting models actually produce more useful trading signals than simple rules, and does the answer change across commodity markets?
 
-The project focuses on energy and metals because those are the markets I am most interested in. I use **AKQuant** as the event-driven backtesting framework and keep the strategy logic deliberately simple so that the experiments are easy to inspect.
+The study uses public daily price series for WTI crude oil, Henry Hub natural gas, gold, silver, and platinum. The backtests are evaluated with chronological walk-forward windows rather than random train/test splits.
 
-## Markets
+## What is in the project
 
-The default public-data universe is:
+The project has two main parts:
 
-| Group | Symbol | Market |
-|---|---|---|
-| Oil | `CL=F` | WTI crude oil futures |
-| Natural gas | `NG=F` | Henry Hub natural gas futures |
-| Gold | `GC=F` | Gold futures |
-| Silver | `SI=F` | Silver futures |
-| Platinum | `PL=F` | Platinum futures |
+- simple momentum, mean-reversion, and volatility-scaled strategies;
+- an LSTM return-forecasting baseline evaluated against momentum out of sample.
 
-A coal-sector ETF can still be downloaded explicitly with `--symbols COAL`, but it is not part of the default research universe because it is an equity proxy rather than a coal futures contract. For thermal coal, I plan to use a separately sourced Newcastle benchmark when licensing and historical-data access are clear.
+I use AKQuant as the backtesting framework for the rule-based strategy experiments. The LSTM and result-analysis code is kept in this repository.
 
-## Questions
+The analysis also separates low-, normal-, and high-volatility periods and includes transaction-cost sensitivity tests for the rule-based strategies.
 
-I started with three basic questions:
+## Data
 
-1. Does momentum behave differently in low- and high-volatility periods?
-2. How much performance disappears once transaction costs are added?
-3. Does simple volatility scaling improve drawdowns enough to justify the extra turnover?
+The default downloader uses public Yahoo Finance continuous futures series:
 
-I later added a small LSTM experiment for a different question: **does a model with slightly better return forecasts actually produce a better trading signal out of sample?** The LSTM is treated as another baseline rather than the main point of the project.
+| Market | Symbol |
+| --- | --- |
+| WTI crude oil | `CL=F` |
+| Henry Hub natural gas | `NG=F` |
+| Gold | `GC=F` |
+| Silver | `SI=F` |
+| Platinum | `PL=F` |
 
-This is not meant to be an alpha-production system. The goal is to practice clean backtesting and understand when apparently good results are fragile.
+Raw downloaded data is not committed to the repository.
 
-## Strategies
+An earlier coal-equity proxy was removed from the final comparison because it is not equivalent to a thermal-coal futures benchmark.
 
-- **Momentum:** long when the lookback price change is positive, short when it is negative.
-- **Mean reversion:** trade against unusually large deviations from a rolling mean.
-- **Volatility-scaled momentum:** same momentum direction, but target a smaller position when recent volatility is high.
-- **LSTM return forecast:** a one-layer PyTorch LSTM trained on lagged returns, 20-day momentum, rolling volatility, and a rolling price z-score. Its next-day forecast is converted to a long/short signal and compared with 60-day momentum on the same test windows.
+## Evaluation
 
-The LSTM uses chronological walk-forward splits. Feature scaling is fitted on the training window only, and predictions are never trained on future observations.
+The main comparison uses chronological walk-forward evaluation. Each market contributes 17 out-of-sample windows, giving 85 commodity-window observations in the final five-market analysis.
 
-The regime label is intentionally simple: a 20-day rolling volatility estimate is compared with expanding 30th/70th percentile thresholds. Using expanding thresholds avoids classifying an old observation with information from the future.
+For the trading comparison I focus on Sharpe ratio, drawdown, and the share of windows in which the LSTM signal has a higher Sharpe ratio than the momentum benchmark. Forecast RMSE, MAE, and directional accuracy are recorded separately.
 
-## A note on futures returns
+WTI requires special treatment because the continuous futures series contains the April 2020 negative-price episode. Returns are therefore constructed without taking logarithms of non-positive prices. I also report a robustness comparison with the 2020 test windows excluded.
 
-WTI traded below zero in April 2020. A log-return pipeline therefore breaks on real crude-oil data, and ordinary percentage returns become awkward when the lagged futures price is negative.
+## Results
 
-For the cross-market experiments I use a fixed-notional research return:
+The main result is not that one model wins everywhere. Performance differs substantially across commodities.
 
-`(price_t - price_t-1) / abs(price_t-1)`
+| Market | Mean LSTM Sharpe | Mean Momentum Sharpe | LSTM win share |
+| --- | ---: | ---: | ---: |
+| WTI | -0.370 | -0.173 | 41.2% |
+| Natural gas | 0.379 | -0.290 | 58.8% |
+| Gold | -0.165 | 0.757 | 23.5% |
+| Platinum | 0.725 | -0.811 | 82.4% |
+| Silver | -0.501 | -0.447 | 58.8% |
 
-For normal positive prices this is the usual arithmetic return. The metric is intended as a transparent normalized daily P&L measure rather than a full futures-account return. The backtest therefore aggregates P&L additively instead of pretending that every daily futures P&L can be compounded like an ETF investment.
+The strongest relative LSTM result appears in platinum, where it beats the momentum benchmark in 82.4% of walk-forward windows. Natural gas also shows a smaller LSTM advantage. Gold gives the opposite result: the simple momentum benchmark is substantially stronger on average.
 
-This still does **not** solve contract-roll, margin, multiplier, or slippage issues. Those are limitations of using public continuous futures series and are kept explicit rather than hidden in the backtest.
+At the broad group level, the difference between energy and precious metals is much smaller than the variation between individual commodities. This makes the asset-level comparison more informative than a simple energy-versus-metals conclusion.
 
-## Repository layout
+![Mean walk-forward Sharpe by commodity](results/phase4/sharpe_by_asset.png)
 
-```text
-.
-|-- data/
-|   |-- download_data.py
-|   `-- make_demo_data.py
-|-- strategies/
-|   |-- momentum.py
-|   |-- mean_reversion.py
-|   `-- vol_scaled_momentum.py
-|-- analysis/
-|   |-- returns.py
-|   |-- features.py
-|   |-- data_checks.py
-|   |-- regimes.py
-|   |-- metrics.py
-|   `-- vector_backtest.py
-|-- models/
-|   `-- lstm_forecaster.py
-|-- experiments/
-|   |-- baseline_test.py
-|   |-- regime_test.py
-|   |-- cost_sensitivity.py
-|   |-- walk_forward_test.py
-|   `-- lstm_walk_forward.py
-|-- tests/
-|-- results/
-|-- run_akquant_demo.py
-`-- requirements.txt
-```
+### Forecast accuracy and trading performance
 
-## Installation
+Across the 85 walk-forward observations, LSTM directional accuracy and LSTM Sharpe have a correlation of **0.645**. Better directional forecasts are therefore associated with better risk-adjusted trading performance in this experiment, but the asset-level results show that forecast usefulness is still far from uniform across markets.
+
+![Directional accuracy versus LSTM Sharpe](results/phase4/accuracy_vs_sharpe.png)
+
+### WTI robustness
+
+The weak WTI result is not driven only by the 2020 negative-price episode.
+
+| WTI sample | Mean LSTM Sharpe | Mean Momentum Sharpe | Difference |
+| --- | ---: | ---: | ---: |
+| Full sample | -0.370 | -0.173 | -0.198 |
+| Excluding 2020 windows | -0.376 | -0.179 | -0.197 |
+
+The comparison changes very little after removing the 2020 test windows.
+
+## Reproducing the analysis
+
+Install the dependencies:
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-## Quick start
-
-Create an offline demo dataset:
+Download the public market data:
 
 ```bash
-python data/make_demo_data.py
+python data/download_data.py
 ```
 
-Or download the default public futures universe:
-
-```bash
-python data/download_data.py --start 2015-01-01
-```
-
-Audit the downloaded data before running experiments:
+Run the data checks:
 
 ```bash
 python analysis/data_checks.py
 ```
 
-Run the simple experiments:
+Run the LSTM walk-forward experiment:
 
 ```bash
-python experiments/baseline_test.py
-python experiments/regime_test.py
-python experiments/cost_sensitivity.py
-python experiments/walk_forward_test.py
+python experiments/lstm_walk_forward.py
 ```
 
-Run the LSTM walk-forward experiment on one market:
+Then aggregate the results and generate the final figures:
 
 ```bash
-python experiments/lstm_walk_forward.py --symbol CL=F
+python experiments/phase4_analysis.py
 ```
 
-The default model is intentionally small: one LSTM layer with 24 hidden units. I kept the architecture simple because the experiment is about out-of-sample economic value, not model complexity.
+The rule-based experiments can be run separately from the scripts in `experiments/`.
 
-## Backtesting choices
+## Repository layout
 
-- signals are lagged by one day before returns are applied;
-- regime thresholds are expanding rather than full-sample quantiles;
-- transaction costs are charged when the position changes;
-- parameter selection in the walk-forward experiment only uses the training window;
-- fixed-notional P&L is aggregated additively rather than using a misleading CAGR around negative futures prices;
-- futures and equity proxies are not pooled into one claim;
-- results from public continuous futures are treated as research approximations, not executable historical P&L.
+```text
+analysis/       return construction, regimes, metrics, and result analysis
+data/           public-data downloader and demo-data generator
+experiments/    strategy, walk-forward, LSTM, and final analysis scripts
+models/         LSTM implementation
+strategies/     momentum, mean-reversion, and volatility-scaled strategies
+tests/          research utility tests
+results/        generated outputs; only final figures are kept in Git
+```
 
-## What I would extend next
+## Limitations
 
-The current version still uses only price-based inputs. A more serious commodity study would add futures-curve information (backwardation/contango), inventories, weather for natural gas, and possibly macro variables. Those extensions are more interesting to me than making the LSTM deeper, because they add commodity-specific information rather than just model complexity.
+This is a student research project rather than a production trading system. The public Yahoo Finance series are convenient continuous futures histories, not fully specified institutional futures curves, so contract rolls and execution details are simplified. The LSTM is intentionally a compact baseline rather than an extensively tuned deep-learning model. Transaction costs are examined in the rule-based experiments, but the final LSTM comparison should not be read as a claim of directly deployable profitability.
 
-## Framework attribution
+The sample contains only five final commodity series, and the apparent strength of the LSTM in platinum or natural gas should be treated as an empirical result for this experiment rather than evidence of a universal advantage. A natural extension would be to add a proper thermal-coal benchmark and study whether the cross-commodity differences can be explained by volatility, trend persistence, or other market characteristics.
 
-This project uses the open-source [AKQuant](https://github.com/akfamily/akquant) backtesting framework for event-driven execution. AKQuant is distributed under the MIT License. Strategy definitions, regime analysis, cost tests, and walk-forward experiments in this repository are separate project code.
+## Framework
 
-## Disclaimer
-
-For research and educational use only. This is not investment advice.
+The rule-based backtesting experiments use the open-source **AKQuant** framework as a dependency. This repository contains my experiment design, strategy implementations, LSTM baseline, evaluation code, and analysis rather than a copy or rebranding of the AKQuant framework.

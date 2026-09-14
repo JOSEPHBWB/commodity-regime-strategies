@@ -9,3 +9,13 @@ results/*.html
 !results/.gitkeep
 # Optional licensed/proprietary market data should stay local.
 data/coal_private/
+
+
+# Generated market data and experiment tables
+data/raw/
+results/*.csv
+results/phase4/*.csv
+
+# Keep final Phase 4 figures
+!results/phase4/
+!results/phase4/*.png
