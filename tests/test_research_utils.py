@@ -35,3 +35,18 @@ def test_regime_uses_missing_warmup():
 def test_metrics_drawdown_non_positive():
     m = performance_metrics(pd.Series([0.01, -0.02, 0.01, 0.0]))
     assert m["max_drawdown"] <= 0
+
+
+def test_price_features_only_use_past_prices():
+    from analysis.features import make_price_features
+
+    df = sample_df(100)
+    first = make_price_features(df)
+
+    changed = df.copy()
+    changed.loc[80:, "close"] = changed.loc[80:, "close"] * 2
+    second = make_price_features(changed)
+
+    # Altering future prices must not change features at an earlier date.
+    cols = ["ret_1", "ret_5", "momentum_20", "vol_20", "zscore_20"]
+    pd.testing.assert_series_equal(first.loc[70, cols], second.loc[70, cols])

@@ -22,3 +22,18 @@ Before adding a model, I want to know whether the basic backtest is trustworthy.
 ## Possible version 2
 
 Add curve slope and inventory variables for crude oil and natural gas, then ask whether the same momentum signal behaves differently when the market is in backwardation versus contango. That extension would be more commodity-specific than simply adding a neural network.
+
+## Phase 2: LSTM baseline
+
+I added the LSTM after the first signal tests rather than starting with it. The point is to compare forecasting accuracy with trading usefulness, not to claim that a neural network is automatically better.
+
+Current choices:
+- one LSTM layer, 24 hidden units by default;
+- 20-day input sequence;
+- only causal price features;
+- training-window-only standardization;
+- chronological 3-year train / 6-month test windows;
+- 5 bps default transaction cost;
+- 60-day momentum kept as the simple trading benchmark.
+
+A useful result would include cases where the LSTM forecasts slightly better but does not improve Sharpe after costs. That is more informative than tuning until every market looks profitable.

@@ -23,11 +23,13 @@ The default public-data universe is:
 
 ## Questions
 
-I am testing three basic ideas:
+I started with three basic questions:
 
 1. Does momentum behave differently in low- and high-volatility periods?
 2. How much performance disappears once transaction costs are added?
 3. Does simple volatility scaling improve drawdowns enough to justify the extra turnover?
+
+I later added a small LSTM experiment for a different question: **does a model with slightly better return forecasts actually produce a better trading signal out of sample?** The LSTM is treated as another baseline rather than the main point of the project.
 
 This is not meant to be an alpha-production system. The goal is to practice clean backtesting and understand when apparently good results are fragile.
 
@@ -36,6 +38,9 @@ This is not meant to be an alpha-production system. The goal is to practice clea
 - **Momentum:** long when the lookback return is positive, short when it is negative.
 - **Mean reversion:** trade against unusually large deviations from a rolling mean.
 - **Volatility-scaled momentum:** same momentum direction, but target a smaller position when recent volatility is high.
+- **LSTM return forecast:** a one-layer PyTorch LSTM trained on lagged returns, 20-day momentum, rolling volatility, and a rolling price z-score. Its next-day return forecast is converted to a long/short signal and compared with 60-day momentum on the same test windows.
+
+The LSTM uses chronological walk-forward splits. Feature scaling is fitted on the training window only, and predictions are never trained on future observations.
 
 The regime label is intentionally simple: a 20-day rolling volatility estimate is compared with expanding 30th/70th percentile thresholds. Using expanding thresholds avoids classifying an old observation with information from the future.
 
@@ -51,14 +56,18 @@ The regime label is intentionally simple: a 20-day rolling volatility estimate i
 |   |-- mean_reversion.py
 |   `-- vol_scaled_momentum.py
 |-- analysis/
+|   |-- features.py
 |   |-- regimes.py
 |   |-- metrics.py
 |   `-- vector_backtest.py
+|-- models/
+|   `-- lstm_forecaster.py
 |-- experiments/
 |   |-- baseline_test.py
 |   |-- regime_test.py
 |   |-- cost_sensitivity.py
-|   `-- walk_forward_test.py
+|   |-- walk_forward_test.py
+|   `-- lstm_walk_forward.py
 |-- tests/
 |-- results/
 |-- run_akquant_demo.py
@@ -92,6 +101,14 @@ python experiments/cost_sensitivity.py
 python experiments/walk_forward_test.py
 ```
 
+Run the LSTM walk-forward experiment on one market:
+
+```bash
+python experiments/lstm_walk_forward.py --symbol CL=F
+```
+
+The default model is intentionally small: one LSTM layer with 24 hidden units. I kept the architecture simple because the experiment is about out-of-sample economic value, not model complexity.
+
 To download current public market data through Yahoo Finance:
 
 ```bash
@@ -116,7 +133,7 @@ A few choices matter more to me here than adding a complicated model:
 
 ## What I would extend next
 
-The current version only studies price-based signals. A more serious commodity project would add futures curve information (backwardation/contango), inventories, weather for natural gas, and possibly macro variables. I left those out of the first version because I wanted a small experiment where I could understand every assumption before adding more data.
+The current version still uses only price-based inputs. A more serious commodity study would add futures-curve information (backwardation/contango), inventories, weather for natural gas, and possibly macro variables. Those extensions are more interesting to me than making the LSTM deeper, because they add commodity-specific information rather than just model complexity.
 
 ## Framework attribution
 
