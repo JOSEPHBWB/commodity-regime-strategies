@@ -135,11 +135,13 @@ def run_symbol(
                 "test_end": df.iloc[last_trade_row]["date"],
                 **f_metrics,
                 "lstm_sharpe": lstm_perf["sharpe"],
-                "lstm_return": lstm_perf["annual_return"],
+                "lstm_period_return": lstm_perf["period_return"],
+                "lstm_annualized_pnl": lstm_perf["annual_return"],
                 "lstm_max_drawdown": lstm_perf["max_drawdown"],
                 "lstm_turnover": float(lstm_bt.loc[test_mask, "turnover"].mean()),
                 "momentum_sharpe": momentum_perf["sharpe"],
-                "momentum_return": momentum_perf["annual_return"],
+                "momentum_period_return": momentum_perf["period_return"],
+                "momentum_annualized_pnl": momentum_perf["annual_return"],
                 "momentum_max_drawdown": momentum_perf["max_drawdown"],
             }
         )
@@ -191,10 +193,14 @@ def main() -> None:
             folds=("fold", "count"),
             direction_accuracy=("directional_accuracy", "mean"),
             forecast_rmse=("forecast_rmse", "mean"),
-            lstm_sharpe=("lstm_sharpe", "mean"),
-            momentum_sharpe=("momentum_sharpe", "mean"),
-            lstm_max_drawdown=("lstm_max_drawdown", "mean"),
-            momentum_max_drawdown=("momentum_max_drawdown", "mean"),
+            lstm_sharpe_mean=("lstm_sharpe", "mean"),
+            lstm_sharpe_median=("lstm_sharpe", "median"),
+            momentum_sharpe_mean=("momentum_sharpe", "mean"),
+            momentum_sharpe_median=("momentum_sharpe", "median"),
+            lstm_period_return_mean=("lstm_period_return", "mean"),
+            momentum_period_return_mean=("momentum_period_return", "mean"),
+            lstm_max_drawdown_mean=("lstm_max_drawdown", "mean"),
+            momentum_max_drawdown_mean=("momentum_max_drawdown", "mean"),
         )
         .reset_index()
     )

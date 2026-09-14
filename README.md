@@ -14,12 +14,11 @@ The default public-data universe is:
 |---|---|---|
 | Oil | `CL=F` | WTI crude oil futures |
 | Natural gas | `NG=F` | Henry Hub natural gas futures |
-| Coal | `COAL` | Range Global Coal ETF (used as a coal-sector proxy) |
 | Gold | `GC=F` | Gold futures |
 | Silver | `SI=F` | Silver futures |
 | Platinum | `PL=F` | Platinum futures |
 
-`COAL` is an equity ETF rather than a coal futures contract, so I report it separately as a proxy rather than treating it as directly comparable to the futures series. The loader can also read a user-supplied coal futures CSV if better data are available.
+A coal-sector ETF can still be downloaded explicitly with `--symbols COAL`, but it is not part of the default research universe because it is an equity proxy rather than a coal futures contract. For thermal coal, I plan to use a separately sourced Newcastle benchmark when licensing and historical-data access are clear.
 
 ## Questions
 
@@ -35,14 +34,26 @@ This is not meant to be an alpha-production system. The goal is to practice clea
 
 ## Strategies
 
-- **Momentum:** long when the lookback return is positive, short when it is negative.
+- **Momentum:** long when the lookback price change is positive, short when it is negative.
 - **Mean reversion:** trade against unusually large deviations from a rolling mean.
 - **Volatility-scaled momentum:** same momentum direction, but target a smaller position when recent volatility is high.
-- **LSTM return forecast:** a one-layer PyTorch LSTM trained on lagged returns, 20-day momentum, rolling volatility, and a rolling price z-score. Its next-day return forecast is converted to a long/short signal and compared with 60-day momentum on the same test windows.
+- **LSTM return forecast:** a one-layer PyTorch LSTM trained on lagged returns, 20-day momentum, rolling volatility, and a rolling price z-score. Its next-day forecast is converted to a long/short signal and compared with 60-day momentum on the same test windows.
 
 The LSTM uses chronological walk-forward splits. Feature scaling is fitted on the training window only, and predictions are never trained on future observations.
 
 The regime label is intentionally simple: a 20-day rolling volatility estimate is compared with expanding 30th/70th percentile thresholds. Using expanding thresholds avoids classifying an old observation with information from the future.
+
+## A note on futures returns
+
+WTI traded below zero in April 2020. A log-return pipeline therefore breaks on real crude-oil data, and ordinary percentage returns become awkward when the lagged futures price is negative.
+
+For the cross-market experiments I use a fixed-notional research return:
+
+`(price_t - price_t-1) / abs(price_t-1)`
+
+For normal positive prices this is the usual arithmetic return. The metric is intended as a transparent normalized daily P&L measure rather than a full futures-account return. The backtest therefore aggregates P&L additively instead of pretending that every daily futures P&L can be compounded like an ETF investment.
+
+This still does **not** solve contract-roll, margin, multiplier, or slippage issues. Those are limitations of using public continuous futures series and are kept explicit rather than hidden in the backtest.
 
 ## Repository layout
 
@@ -56,7 +67,9 @@ The regime label is intentionally simple: a 20-day rolling volatility estimate i
 |   |-- mean_reversion.py
 |   `-- vol_scaled_momentum.py
 |-- analysis/
+|   |-- returns.py
 |   |-- features.py
+|   |-- data_checks.py
 |   |-- regimes.py
 |   |-- metrics.py
 |   `-- vector_backtest.py
@@ -78,21 +91,31 @@ The regime label is intentionally simple: a 20-day rolling volatility estimate i
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate     # Windows
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-AKQuant is published on PyPI, so a Rust toolchain is not required for the normal Python install.
-
 ## Quick start
 
-First create an offline demo dataset:
+Create an offline demo dataset:
 
 ```bash
 python data/make_demo_data.py
 ```
 
-Run the simple research experiments:
+Or download the default public futures universe:
+
+```bash
+python data/download_data.py --start 2015-01-01
+```
+
+Audit the downloaded data before running experiments:
+
+```bash
+python analysis/data_checks.py
+```
+
+Run the simple experiments:
 
 ```bash
 python experiments/baseline_test.py
@@ -109,27 +132,15 @@ python experiments/lstm_walk_forward.py --symbol CL=F
 
 The default model is intentionally small: one LSTM layer with 24 hidden units. I kept the architecture simple because the experiment is about out-of-sample economic value, not model complexity.
 
-To download current public market data through Yahoo Finance:
-
-```bash
-python data/download_data.py --start 2015-01-01
-```
-
-Then run the AKQuant event-driven example:
-
-```bash
-python run_akquant_demo.py --symbol CL=F
-```
-
 ## Backtesting choices
-
-A few choices matter more to me here than adding a complicated model:
 
 - signals are lagged by one day before returns are applied;
 - regime thresholds are expanding rather than full-sample quantiles;
 - transaction costs are charged when the position changes;
 - parameter selection in the walk-forward experiment only uses the training window;
-- futures and the coal ETF proxy are not pooled into one claim without noting the difference.
+- fixed-notional P&L is aggregated additively rather than using a misleading CAGR around negative futures prices;
+- futures and equity proxies are not pooled into one claim;
+- results from public continuous futures are treated as research approximations, not executable historical P&L.
 
 ## What I would extend next
 

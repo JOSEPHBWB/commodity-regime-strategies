@@ -7,3 +7,5 @@ results/*.csv
 results/*.png
 results/*.html
 !results/.gitkeep
+# Optional licensed/proprietary market data should stay local.
+data/coal_private/

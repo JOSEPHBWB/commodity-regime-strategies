@@ -54,7 +54,8 @@ def walk_forward(df: pd.DataFrame, symbol: str) -> list[dict]:
                 "chosen_lookback": best_lb,
                 "train_sharpe": valid_scores[best_lb],
                 "test_sharpe": metrics["sharpe"],
-                "test_return": metrics["annual_return"],
+                "test_period_return": metrics["period_return"],
+                "test_annualized_pnl": metrics["annual_return"],
                 "test_max_drawdown": metrics["max_drawdown"],
             }
         )

@@ -6,7 +6,9 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
-DEFAULT_SYMBOLS = ["CL=F", "NG=F", "COAL", "GC=F", "SI=F", "PL=F"]
+# Keep the default research universe to actual commodity futures series.
+# COAL can still be requested explicitly, but it is an equity ETF proxy.
+DEFAULT_SYMBOLS = ["CL=F", "NG=F", "GC=F", "SI=F", "PL=F"]
 
 
 def download_one(symbol: str, start: str, end: str | None = None) -> pd.DataFrame:

@@ -3,6 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from analysis.returns import signed_price_return
+
 
 def add_volatility_regime(
     df: pd.DataFrame,
@@ -12,7 +14,7 @@ def add_volatility_regime(
     high_q: float = 0.70,
 ) -> pd.DataFrame:
     out = df.copy()
-    ret = out["close"].pct_change()
+    ret = signed_price_return(out["close"])
     out["rolling_vol"] = ret.rolling(vol_window).std() * np.sqrt(252)
 
     low_cut = out["rolling_vol"].expanding(min_periods=min_history).quantile(low_q)
