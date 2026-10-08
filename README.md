@@ -1,8 +1,6 @@
 # Commodity Strategies Across Market Regimes
 
-A small empirical study of simple trading signals and an LSTM baseline across energy and precious-metal futures.
-
-I started this project to look at a practical question: do more flexible forecasting models actually produce more useful trading signals than simple rules, and does the answer change across commodity markets?
+Do more flexible forecasting models actually produce more useful trading signals than simple rules, and does the answer change across commodity markets?
 
 The study uses public daily price series for WTI crude oil, Henry Hub natural gas, gold, silver, and platinum. The backtests are evaluated with chronological walk-forward windows rather than random train/test splits.
 
